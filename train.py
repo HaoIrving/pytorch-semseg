@@ -58,7 +58,7 @@ def train(cfg, writer, logger):
 
     # from torchvision.datasets import VOCSegmentation
     t_loader = VOCSegmentation(
-        "datasets",
+        ".",
         year="2007",
         image_set='train',
         name=cfg["data"]["dataset"],
@@ -67,7 +67,7 @@ def train(cfg, writer, logger):
     )
 
     v_loader = VOCSegmentation(
-        "datasets",
+        ".",
         year="2007",
         image_set='val',
         name=cfg["data"]["dataset"],
