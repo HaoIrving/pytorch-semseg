@@ -157,7 +157,7 @@ def train(cfg, writer, logger):
 
             outputs = model(images)
 
-            loss = loss_fn(input=outputs, target=labels) / 1000000
+            loss = loss_fn(input=outputs, target=labels)# / 1000000
             
             optimizer.zero_grad()
             loss.backward()
