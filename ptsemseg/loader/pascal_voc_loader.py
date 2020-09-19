@@ -135,7 +135,7 @@ class VOCSegmentation(VisionDataset):
         self.tf = transforms.Compose(
             [
                 # transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+                transforms.Normalize([139.9976, 146.0201, 185.6476, 188.2263], [219.1596, 203.7439, 245.2997, 248.7558]),
             ]
         )
         self.img_size = img_size if isinstance(img_size, tuple) else (img_size, img_size)
