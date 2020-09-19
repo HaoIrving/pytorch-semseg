@@ -10,9 +10,9 @@ data:
     sbd_path: /private/home/meetshah/datasets/VOC/benchmark_RELEASE/
 training:
     train_iters: 30000
-    batch_size: 16
+    batch_size: 24
     val_interval: 100
-    n_workers: 16
+    n_workers: 4
     print_interval: 5
     optimizer:
         name: 'sgd'
