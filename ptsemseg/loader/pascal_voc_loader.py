@@ -134,7 +134,7 @@ class VOCSegmentation(VisionDataset):
         assert (len(self.images) == len(self.masks))
         self.tf = transforms.Compose(
             [
-                transforms.ToTensor(),
+                # transforms.ToTensor(),
                 transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
             ]
         )
@@ -155,6 +155,7 @@ class VOCSegmentation(VisionDataset):
         img_np = pickle.load(img_f) # 4,512,512
         img = torch.from_numpy(img_np)
         img = img.type(torch.FloatTensor)
+        # img = self.tf(img)
 
         target_f = open(self.masks[index], 'rb')
         target_np = pickle.load(target_f) # 512,512
@@ -276,11 +277,13 @@ class VOCSegmentation_origin(VisionDataset):
             lbl = lbl.resize((self.img_size[0], self.img_size[1]))
         img = self.tf(img)
         lbl = torch.from_numpy(np.array(lbl)).long()
-        a = lbl.numpy()
-        c = []
-        for l in a:
-            c.extend(list(l)) 
-        d = set(c)
+
+        # a = lbl.numpy()
+        # c = []
+        # for l in a:
+        #     c.extend(list(l)) 
+        # d = set(c)
+
         lbl[lbl == 255] = 0 # gt of background
         return img, lbl
 
