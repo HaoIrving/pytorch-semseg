@@ -21,6 +21,6 @@ training:
         # momentum: 0.99
     loss:
         name: 'cross_entropy'
-        size_average: False
+        size_average: True
     lr_schedule:
     resume: runs/fcn8s_pascal/ /fcn8s_HH_VV_VH_HV_best_model.pkl
