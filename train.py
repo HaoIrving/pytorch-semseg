@@ -151,18 +151,18 @@ def train(cfg, writer, logger):
         for (images, labels) in trainloader:
             i += 1
             start_ts = time.time()
-            scheduler.step()
             model.train()
             images = images.to(device)
             labels = labels.to(device)
 
-            optimizer.zero_grad()
             outputs = model(images)
 
             loss = loss_fn(input=outputs, target=labels)
-
+            
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            scheduler.step()
 
             time_meter.update(time.time() - start_ts)
 
