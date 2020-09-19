@@ -14,6 +14,7 @@ ckpt
 runs
 datasets
 VOCdevkit
+VOCdevkit_fashion_features
 
 # C extensions
 *.so

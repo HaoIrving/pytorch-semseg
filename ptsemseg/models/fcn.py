@@ -1,4 +1,3 @@
-            nn.BatchNorm2d(512), 
 import functools
 
 import torch.nn as nn
@@ -246,14 +245,14 @@ class fcn8s(nn.Module):
         self.n_classes = n_classes
         self.loss = functools.partial(cross_entropy2d, size_average=False)
 
-        # self.conv_block0 = nn.Sequential(
-        #     nn.Conv2d(in_channels=4, out_channels=3, kernel_size=1, stride=1, padding=1, bias=True),
-        #     nn.BatchNorm2d(3), 
-        #     nn.ReLU(inplace=True),
-        # )
+        self.conv_block0 = nn.Sequential(
+            nn.Conv2d(in_channels=4, out_channels=3, kernel_size=1, stride=1, padding=1, bias=True),
+            nn.BatchNorm2d(3), 
+            nn.ReLU(inplace=True),
+        )
 
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(4, 64, 3, padding=100),
+            nn.Conv2d(3, 64, 3, padding=100),
             nn.BatchNorm2d(64), 
             nn.ReLU(inplace=True),
             nn.Conv2d(64, 64, 3, padding=1),
@@ -342,9 +341,9 @@ class fcn8s(nn.Module):
                 )
 
     def forward(self, x):
-        # conv0 = self.conv_block0(x) # 1*1 conv
-        # conv1 = self.conv_block1(conv0)
-        conv1 = self.conv_block1(x)
+        conv0 = self.conv_block0(x) # 1*1 conv
+        conv1 = self.conv_block1(conv0)
+        # conv1 = self.conv_block1(x)
         conv2 = self.conv_block2(conv1)
         conv3 = self.conv_block3(conv2)
         conv4 = self.conv_block4(conv3)
