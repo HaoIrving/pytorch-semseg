@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 from ptsemseg.models import get_model
 from ptsemseg.loss import get_loss_function
-from ptsemseg.loader import get_loader
+from ptsemseg.loader import get_loader, VOCSegmentation, VOCSegmentation_origin
 from ptsemseg.utils import get_logger
 from ptsemseg.metrics import runningScore, averageMeter
 from ptsemseg.augmentations import get_composed_augmentations
@@ -38,24 +38,57 @@ def train(cfg, writer, logger):
     data_aug = get_composed_augmentations(augmentations)
 
     # Setup Dataloader
-    data_loader = get_loader(cfg["data"]["dataset"])
-    data_path = cfg["data"]["path"]
+    # data_loader = get_loader(cfg["data"]["dataset"])
+    # data_path = cfg["data"]["path"]
 
-    t_loader = data_loader(
-        data_path,
-        is_transform=True,
-        split=cfg["data"]["train_split"],
+    # t_loader = data_loader(
+    #     data_path,
+    #     is_transform=True,
+    #     split=cfg["data"]["train_split"],
+    #     img_size=(cfg["data"]["img_rows"], cfg["data"]["img_cols"]),
+    #     augmentations=data_aug,
+    # )
+
+    # v_loader = data_loader(
+    #     data_path,
+    #     is_transform=True,
+    #     split=cfg["data"]["val_split"],
+    #     img_size=(cfg["data"]["img_rows"], cfg["data"]["img_cols"]),
+    # )
+
+    # from torchvision.datasets import VOCSegmentation
+    t_loader = VOCSegmentation(
+        "datasets",
+        year="2007",
+        image_set='train',
+        name=cfg["data"]["dataset"],
+        n_classes=7,
         img_size=(cfg["data"]["img_rows"], cfg["data"]["img_cols"]),
-        augmentations=data_aug,
     )
 
-    v_loader = data_loader(
-        data_path,
-        is_transform=True,
-        split=cfg["data"]["val_split"],
+    v_loader = VOCSegmentation(
+        "datasets",
+        year="2007",
+        image_set='val',
+        name=cfg["data"]["dataset"],
+        n_classes=7,
         img_size=(cfg["data"]["img_rows"], cfg["data"]["img_cols"]),
     )
+    # t_loader = VOCSegmentation_origin(
+    #     ".",
+    #     year="2007",
+    #     image_set='train',
+    #     n_classes=21,
+    #     img_size=(cfg["data"]["img_rows"], cfg["data"]["img_cols"]),
+    # )
 
+    # v_loader = VOCSegmentation_origin(
+    #     ".",
+    #     year="2007",
+    #     image_set='val',
+    #     n_classes=21,
+    #     img_size=(cfg["data"]["img_rows"], cfg["data"]["img_cols"]),
+    # )
     n_classes = t_loader.n_classes
     trainloader = data.DataLoader(
         t_loader,

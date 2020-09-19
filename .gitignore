@@ -11,6 +11,9 @@ video_test*.py
 *.swp
 data
 ckpt
+runs
+datasets
+VOCdevkit
 
 # C extensions
 *.so

@@ -1,19 +1,19 @@
 model:
     arch: fcn8s
 data:
-    dataset: pascal
+    dataset: HH_VV_VH_HV
     train_split: train_aug
     val_split: val
     img_rows: 'same'
     img_cols: 'same'
-    path: /private/home/meetshah/datasets/VOC/060817/VOCdevkit/VOC2012/
+    path: VOC2012
     sbd_path: /private/home/meetshah/datasets/VOC/benchmark_RELEASE/
 training:
-    train_iters: 300000
-    batch_size: 1
-    val_interval: 1000
+    train_iters: 30000
+    batch_size: 16
+    val_interval: 100
     n_workers: 16
-    print_interval: 50
+    print_interval: 5
     optimizer:
         name: 'sgd'
         lr: 1.0e-10
@@ -23,4 +23,4 @@ training:
         name: 'cross_entropy'
         size_average: False
     lr_schedule:
-    resume: fcn8s_pascal_best_model.pkl
+    resume: runs/fcn8s_pascal/ /fcn8s_HH_VV_VH_HV_best_model.pkl

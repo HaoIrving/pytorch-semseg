@@ -15,6 +15,276 @@ from torch.utils import data
 from torchvision import transforms
 
 
+import os
+import sys
+import tarfile
+import collections
+from torchvision.datasets.vision import VisionDataset
+
+if sys.version_info[0] == 2:
+    import xml.etree.cElementTree as ET
+else:
+    import xml.etree.ElementTree as ET
+
+from PIL import Image
+from torchvision.datasets.utils import download_url, check_integrity, verify_str_arg
+
+import pickle
+
+DATASET_YEAR_DICT = {
+    '2012': {
+        'url': 'http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar',
+        'filename': 'VOCtrainval_11-May-2012.tar',
+        'md5': '6cd6e144f989b92b3379bac3b3de84fd',
+        'base_dir': os.path.join('VOCdevkit', 'VOC2012')
+    },
+    '2011': {
+        'url': 'http://host.robots.ox.ac.uk/pascal/VOC/voc2011/VOCtrainval_25-May-2011.tar',
+        'filename': 'VOCtrainval_25-May-2011.tar',
+        'md5': '6c3384ef61512963050cb5d687e5bf1e',
+        'base_dir': os.path.join('TrainVal', 'VOCdevkit', 'VOC2011')
+    },
+    '2010': {
+        'url': 'http://host.robots.ox.ac.uk/pascal/VOC/voc2010/VOCtrainval_03-May-2010.tar',
+        'filename': 'VOCtrainval_03-May-2010.tar',
+        'md5': 'da459979d0c395079b5c75ee67908abb',
+        'base_dir': os.path.join('VOCdevkit', 'VOC2010')
+    },
+    '2009': {
+        'url': 'http://host.robots.ox.ac.uk/pascal/VOC/voc2009/VOCtrainval_11-May-2009.tar',
+        'filename': 'VOCtrainval_11-May-2009.tar',
+        'md5': '59065e4b188729180974ef6572f6a212',
+        'base_dir': os.path.join('VOCdevkit', 'VOC2009')
+    },
+    '2008': {
+        'url': 'http://host.robots.ox.ac.uk/pascal/VOC/voc2008/VOCtrainval_14-Jul-2008.tar',
+        'filename': 'VOCtrainval_11-May-2012.tar',
+        'md5': '2629fa636546599198acfcfbfcf1904a',
+        'base_dir': os.path.join('VOCdevkit', 'VOC2008')
+    },
+    '2007': {
+        'url': 'http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtrainval_06-Nov-2007.tar',
+        'filename': 'VOCtrainval_06-Nov-2007.tar',
+        'md5': 'c52e279531787c972589f7e41ab4ae64',
+        'base_dir': os.path.join('VOCdevkit', 'VOC2007')
+    }
+}
+
+
+class VOCSegmentation(VisionDataset):
+    """`Pascal VOC <http://host.robots.ox.ac.uk/pascal/VOC/>`_ Segmentation Dataset.
+
+    Args:
+        root (string): Root directory of the VOC Dataset.
+        year (string, optional): The dataset year, supports years 2007 to 2012.
+        image_set (string, optional): Select the image_set to use, ``train``, ``trainval`` or ``val``
+        download (bool, optional): If true, downloads the dataset from the internet and
+            puts it in root directory. If dataset is already downloaded, it is not
+            downloaded again.
+        transform (callable, optional): A function/transform that  takes in an PIL image
+            and returns a transformed version. E.g, ``transforms.RandomCrop``
+        target_transform (callable, optional): A function/transform that takes in the
+            target and transforms it.
+        transforms (callable, optional): A function/transform that takes input sample and its target as entry
+            and returns a transformed version.
+    """
+
+    def __init__(self,
+                 root,
+                 year='2012',
+                 image_set='train',
+                 name=None,
+                 n_classes=None,
+                 img_size=512,
+                 download=False,
+                 transform=None,
+                 target_transform=None,
+                 transforms=transforms):
+        super(VOCSegmentation, self).__init__(root, transforms, transform, target_transform)
+        self.n_classes = n_classes
+        self.year = year
+        self.url = DATASET_YEAR_DICT[year]['url']
+        self.filename = DATASET_YEAR_DICT[year]['filename']
+        self.md5 = DATASET_YEAR_DICT[year]['md5']
+        valid_sets = ["train", "trainval", "val"]
+        if year == "2007":
+            valid_sets.append("test")
+        self.image_set = verify_str_arg(image_set, "image_set", valid_sets)
+        base_dir = os.path.join('VOCdevkit_fashion_features', name)
+        voc_root = os.path.join(self.root, base_dir)
+        image_dir = os.path.join(voc_root, 'JPEGImages')
+        mask_dir = os.path.join(voc_root, 'SegmentationClass')
+
+        if download:
+            download_extract(self.url, self.root, self.filename, self.md5)
+
+        if not os.path.isdir(voc_root):
+            raise RuntimeError('Dataset not found or corrupted.' +
+                               ' You can use download=True to download it')
+
+        splits_dir = os.path.join(voc_root, 'ImageSets/Segmentation')
+
+        split_f = os.path.join(splits_dir, image_set.rstrip('\n') + '.txt')
+
+        with open(os.path.join(split_f), "r") as f:
+            file_names = [x.strip() for x in f.readlines()]
+
+        self.images = [os.path.join(image_dir, x + ".pkl") for x in file_names]
+        self.masks = [os.path.join(mask_dir, x + ".pkl") for x in file_names]
+        assert (len(self.images) == len(self.masks))
+        self.tf = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            ]
+        )
+        self.img_size = img_size if isinstance(img_size, tuple) else (img_size, img_size)
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (image, target) where target is the image segmentation.
+        """
+        # img = Image.open(self.images[index]).convert('RGB')
+        # target = Image.open(self.masks[index])
+        
+        img_f = open(self.images[index], 'rb')
+        img_np = pickle.load(img_f) # 4,512,512
+        img = torch.from_numpy(img_np)
+        img = img.type(torch.FloatTensor)
+
+        target_f = open(self.masks[index], 'rb')
+        target_np = pickle.load(target_f) # 512,512
+        target = torch.from_numpy(target_np).long()
+        target[target == 7] = 0 # gt of background
+        # target = target.type(torch.FloatTensor)
+
+        # if self.transforms is not None:
+        # img, target = self.transform_v2(img, target)
+
+        return img, target
+
+    def __len__(self):
+        return len(self.images)
+
+    def transform_v2(self, img, lbl):
+        if self.img_size == ("same", "same"):
+            pass
+        else:
+            img = img.resize((self.img_size[0], self.img_size[1]))  # uint8 with RGB mode
+            lbl = lbl.resize((self.img_size[0], self.img_size[1]))
+        img = self.tf(img)
+        lbl = torch.from_numpy(np.array(lbl)).long()
+        lbl[lbl == 255] = 0 # gt of background
+        return img, lbl
+
+class VOCSegmentation_origin(VisionDataset):
+    """`Pascal VOC <http://host.robots.ox.ac.uk/pascal/VOC/>`_ Segmentation Dataset.
+
+    Args:
+        root (string): Root directory of the VOC Dataset.
+        year (string, optional): The dataset year, supports years 2007 to 2012.
+        image_set (string, optional): Select the image_set to use, ``train``, ``trainval`` or ``val``
+        download (bool, optional): If true, downloads the dataset from the internet and
+            puts it in root directory. If dataset is already downloaded, it is not
+            downloaded again.
+        transform (callable, optional): A function/transform that  takes in an PIL image
+            and returns a transformed version. E.g, ``transforms.RandomCrop``
+        target_transform (callable, optional): A function/transform that takes in the
+            target and transforms it.
+        transforms (callable, optional): A function/transform that takes input sample and its target as entry
+            and returns a transformed version.
+    """
+
+    def __init__(self,
+                 root,
+                 year='2012',
+                 image_set='train',
+                 n_classes=None,
+                 img_size=512,
+                 download=False,
+                 transform=None,
+                 target_transform=None,
+                 transforms=transforms):
+        super(VOCSegmentation_origin, self).__init__(root, transforms, transform, target_transform)
+        self.n_classes = n_classes
+        self.year = year
+        self.url = DATASET_YEAR_DICT[year]['url']
+        self.filename = DATASET_YEAR_DICT[year]['filename']
+        self.md5 = DATASET_YEAR_DICT[year]['md5']
+        valid_sets = ["train", "trainval", "val"]
+        if year == "2007":
+            valid_sets.append("test")
+        self.image_set = verify_str_arg(image_set, "image_set", valid_sets)
+        base_dir = DATASET_YEAR_DICT[year]['base_dir']
+        voc_root = os.path.join(self.root, base_dir)
+        image_dir = os.path.join(voc_root, 'JPEGImages')
+        mask_dir = os.path.join(voc_root, 'SegmentationClass')
+
+        if download:
+            download_extract(self.url, self.root, self.filename, self.md5)
+
+        if not os.path.isdir(voc_root):
+            raise RuntimeError('Dataset not found or corrupted.' +
+                               ' You can use download=True to download it')
+
+        splits_dir = os.path.join(voc_root, 'ImageSets/Segmentation')
+
+        split_f = os.path.join(splits_dir, image_set.rstrip('\n') + '.txt')
+
+        with open(os.path.join(split_f), "r") as f:
+            file_names = [x.strip() for x in f.readlines()]
+
+        self.images = [os.path.join(image_dir, x + ".jpg") for x in file_names]
+        self.masks = [os.path.join(mask_dir, x + ".png") for x in file_names]
+        assert (len(self.images) == len(self.masks))
+        self.tf = transforms.Compose(
+            [
+                transforms.ToTensor(),
+                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            ]
+        )
+        self.img_size = img_size if isinstance(img_size, tuple) else (img_size, img_size)
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (image, target) where target is the image segmentation.
+        """
+        img = Image.open(self.images[index]).convert('RGB')
+        target = Image.open(self.masks[index])
+
+        # if self.transforms is not None:
+        img, target = self.transform_v2(img, target)
+
+        return img, target
+
+    def __len__(self):
+        return len(self.images)
+
+    def transform_v2(self, img, lbl):
+        if self.img_size == ("same", "same"):
+            pass
+        else:
+            img = img.resize((self.img_size[0], self.img_size[1]))  # uint8 with RGB mode
+            lbl = lbl.resize((self.img_size[0], self.img_size[1]))
+        img = self.tf(img)
+        lbl = torch.from_numpy(np.array(lbl)).long()
+        a = lbl.numpy()
+        c = []
+        for l in a:
+            c.extend(list(l)) 
+        d = set(c)
+        lbl[lbl == 255] = 0 # gt of background
+        return img, lbl
+
+
 class pascalVOCLoader(data.Dataset):
     """Data loader for the Pascal VOC semantic segmentation dataset.
 
